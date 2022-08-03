@@ -1,13 +1,10 @@
-# ObjectList
-Python list subclass that allows for attribute-wise operations with lists of objects
+from math import sqrt
+from statistics import median
 
-Requires: Python 3.4+ (needs median function from builtin statistics module)
-
-Installation: python setup.py install
-
+"""
 ObjectList is a custom subclass of list which allows for attribute-wise iteration through
-a list of objects. The class also modifies __getitem__ so that
-the list is subscriptable for tuples which allows for the sort functionality to work.
+a list of objects. The class also modifies __getitem__ and __getslice__ so that
+the list is subscriptable for tuples and slices.
 
 The main purpose of this class is to make it easy to deal with a list of objects
 in a attribute-wise manner. This module uses only builtin Python 3 modules and
@@ -75,3 +72,84 @@ print(foo_ObjectList.min('bar'))
 #Get argmax and argmin for a specified attribute - return int indices
 print(foo_ObjectList.argmax('bar'))
 print(foo_ObjectList.argmin('bar'))
+
+"""
+
+class ObjectList(list):
+	#Class which allows for iteration through a list of custom objects
+	def __init__(self,Vals=list()):
+		self.Vals=Vals
+
+	#Replaces list __getitem__ returns ObjectLists for tuples and slices and returns objects
+	#for single indices
+	def __getitem__(self,items):
+		if type(items)==slice:
+			return ObjectList(self.Vals[items])
+		if hasattr(items, '__iter__'):
+			return ObjectList(list(self.Vals[item] for item in items))
+		else:
+			return self.Vals[items]
+
+	#Replaces list __repr__ to show that the variable is of the ObjectList type
+	def __repr__(self):
+		return str('ObjectList {}'.format(self.Vals))
+
+	#Replaces list __iter__ to iterate using ObjectListIterator
+	def __iter__(self):
+		return ObjectListIterator(self.Vals)
+
+	#Pulls values from all objects in ObjectList for a specified attribute
+	def pull(self,attr):
+		vals_list=[None]*len(self.Vals)
+		ObjectListIterator=iter(self)
+		i=0
+		while True:
+			try:
+				vals_list[i]=getattr(next(ObjectListIterator),attr)
+				i+=1
+			except StopIteration:
+				break
+		return vals_list
+
+	def sum(self,attr):
+		return sum(self.pull(attr))
+
+	def mean(self,attr):
+		return self.sum(attr)/len(self.Vals)
+
+	def std(self,attr):
+		mu=self.mean(attr)
+		return sqrt(sum([(x-mu)**2 for x in self.pull(attr)])/len(self.pull(attr)))
+
+	def med(self,attr):
+		return median(self.pull(attr))
+
+	def sort(self,attr):
+		sorted_order=self.argsort(attr)
+		return ObjectList(self.Vals).__getitem__(sorted_order)
+
+	def argsort(self,attr):
+		sort_by=self.pull(attr)
+		return sorted(range(len(sort_by)), key=sort_by.__getitem__)
+
+	def max(self,attr):
+		return max(self.pull(attr))
+
+	def min(self,attr):
+		return min(self.pull(attr))
+
+	def argmax(self,attr):
+		return self.argsort(attr)[-1]
+
+	def argmin(self,attr):
+		return self.argsort(attr)[0]
+
+class ObjectListIterator():
+	def __init__(self,Expr):
+		self.obj=Expr
+		self.ind=-1
+	def __next__(self):
+		if self.ind<len(self.obj)-1:
+			self.ind+=1
+			return self.obj[self.ind]
+		raise StopIteration
